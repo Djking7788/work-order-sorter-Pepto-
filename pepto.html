@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Work Order Sorter</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #697386;
+      --border: #dce3ee;
+      --accent: #2457d6;
+      --accent-soft: #eaf0ff;
+      --success: #177245;
+      --warning: #a15c00;
+      --shadow: 0 8px 24px rgba(23, 32, 51, .08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      background: #111827;
+      color: white;
+      padding: 28px 20px;
+    }
+
+    .wrap { max-width: 1180px; margin: 0 auto; }
+    h1 { margin: 0 0 6px; font-size: clamp(1.7rem, 3vw, 2.5rem); }
+    .subtitle { margin: 0; color: #cbd5e1; }
+
+    main { padding: 24px 20px 48px; }
+    .grid { display: grid; gap: 18px; }
+    .top-grid { grid-template-columns: 1.4fr .8fr; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    h2 { margin: 0 0 12px; font-size: 1.1rem; }
+    label { display: block; font-weight: 650; margin-bottom: 7px; }
+    textarea, input[type="text"] {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+    textarea { min-height: 190px; resize: vertical; }
+    textarea:focus, input:focus { outline: 3px solid var(--accent-soft); border-color: var(--accent); }
+
+    .hint { color: var(--muted); font-size: .9rem; margin: 8px 0 0; line-height: 1.45; }
+    .button-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    button, .file-label {
+      border: 0;
+      border-radius: 9px;
+      padding: 10px 14px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.primary { background: var(--accent); color: #fff; }
+    button.secondary, .file-label { background: #e9eef7; color: var(--text); }
+    button.danger { background: #fff1f2; color: #b42318; }
+    button:hover, .file-label:hover { filter: brightness(.98); }
+    input[type="file"] { display: none; }
+
+    .rules { display: grid; gap: 10px; }
+    .rule {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .rule strong { display: block; margin-bottom: 4px; }
+    code {
+      background: #f1f5f9;
+      padding: 2px 5px;
+      border-radius: 5px;
+      font-size: .92em;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+    }
+    .stat {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .stat .num { font-size: 1.55rem; font-weight: 800; }
+    .stat .label { color: var(--muted); font-size: .86rem; margin-top: 2px; }
+
+    .results { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+    .bucket-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .pill {
+      min-width: 32px;
+      text-align: center;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-weight: 800;
+      font-size: .84rem;
+    }
+    .work-list { display: grid; gap: 8px; max-height: 450px; overflow: auto; }
+    .work-item {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 10px;
+      background: #fbfcfe;
+      word-break: break-word;
+    }
+    .work-name { font-weight: 750; }
+    .work-domain { color: var(--muted); font-size: .84rem; margin-top: 3px; }
+    .empty { color: var(--muted); font-style: italic; padding: 10px 0; }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .search { max-width: 360px; }
+
+    @media (max-width: 900px) {
+      .top-grid, .results { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Work Order Sorter</h1>
+      <p class="subtitle">Automatically sorts work orders into E&amp;I PM, PS E&amp;I, or PEPTO.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="grid top-grid">
+      <section class="card">
+        <h2>Add work orders</h2>
+        <label for="workInput">Paste work orders</label>
+        <textarea id="workInput" placeholder="Examples:\nWO-10452, Replace transmitter, HBSG-128-665\nWO-10453, Pump station inspection, HBSG-128-999-001\nWO-10454, General repair, HBSG-555-111"></textarea>
+        <p class="hint">Use one work order per line. The sorter checks the entire line, so your line can contain a work-order number, name/description, and domain in any order.</p>
+        <div class="button-row">
+          <button class="primary" id="sortBtn">Sort work orders</button>
+          <label class="file-label" for="csvFile">Import CSV</label>
+          <input id="csvFile" type="file" accept=".csv,text/csv" />
+          <button class="secondary" id="loadExampleBtn">Load example</button>
+          <button class="danger" id="clearBtn">Clear</button>
+        </div>
+      </section>
+
+      <aside class="card">
+        <h2>Sorting rules</h2>
+        <div class="rules">
+          <div class="rule">
+            <strong>E&amp;I PM</strong>
+            Contains <code>TAG#</code>, contains <strong>Area Disconnect Audit</strong> (including Area Disconnect Audits), contains <strong>Disconnect Audit</strong>, or domain contains <code>HBSG-128-665</code>
+          </div>
+          <div class="rule">
+            <strong>PS E&amp;I</strong>
+            Domain contains <code>HBSG-128-999-001</code>
+          </div>
+          <div class="rule">
+            <strong>PEPTO</strong>
+            Anything that does not meet the E&amp;I PM or PS E&amp;I criteria. E&amp;I keyword rules take priority over domain rules.
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <section class="stats" aria-label="sorting summary">
+      <div class="stat"><div class="num" id="totalCount">0</div><div class="label">Total work orders</div></div>
+      <div class="stat"><div class="num" id="eiCount">0</div><div class="label">E&amp;I PM</div></div>
+      <div class="stat"><div class="num" id="psCount">0</div><div class="label">PS E&amp;I</div></div>
+      <div class="stat"><div class="num" id="peptoCount">0</div><div class="label">PEPTO</div></div>
+    </section>
+
+    <div class="toolbar">
+      <input class="search" id="searchInput" type="text" placeholder="Search sorted work orders..." />
+      <div class="button-row" style="margin-top:0">
+        <button class="secondary" id="exportBtn">Export sorted CSV</button>
+      </div>
+    </div>
+
+    <section class="grid results" style="margin-top:14px">
+      <div class="card">
+        <div class="bucket-header"><h2>E&amp;I PM</h2><span class="pill" id="eiPill">0</span></div>
+        <div class="work-list" id="eiList"><div class="empty">No work orders yet.</div></div>
+      </div>
+      <div class="card">
+        <div class="bucket-header"><h2>PS E&amp;I</h2><span class="pill" id="psPill">0</span></div>
+        <div class="work-list" id="psList"><div class="empty">No work orders yet.</div></div>
+      </div>
+      <div class="card">
+        <div class="bucket-header"><h2>PEPTO</h2><span class="pill" id="peptoPill">0</span></div>
+        <div class="work-list" id="peptoList"><div class="empty">No work orders yet.</div></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const EI_DOMAIN = 'HBSG-128-665';
+    const PS_DOMAIN = 'HBSG-128-999-001';
+
+    let sorted = { ei: [], ps: [], pepto: [] };
+
+    const $ = (id) => document.getElementById(id);
+
+    function normalizeLine(line) {
+      return line.trim().replace(/^\s*["']|["']\s*$/g, '');
+    }
+
+    function classify(line) {
+      const upper = line.toUpperCase();
+      // E&I keyword rules have highest priority.
+      if (upper.includes('TAG#') || upper.includes('AREA DISCONNECT AUDIT') || upper.includes('DISCONNECT AUDIT')) return 'ei';
+      if (upper.includes(EI_DOMAIN)) return 'ei';
+      if (upper.includes(PS_DOMAIN)) return 'ps';
+      return 'pepto';
+    }
+
+    function extractDomain(line) {
+      const domainMatch = line.match(/HBSG-[A-Z0-9-]+/i);
+      return domainMatch ? domainMatch[0] : 'No HBSG domain found';
+    }
+
+    function sortLines(lines) {
+      sorted = { ei: [], ps: [], pepto: [] };
+      lines
+        .map(normalizeLine)
+        .filter(Boolean)
+        .forEach(line => sorted[classify(line)].push(line));
+      render();
+    }
+
+    function escapeHtml(text) {
+      return text.replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+    }
+
+    function renderList(targetId, items, query) {
+      const target = $(targetId);
+      const filtered = items.filter(item => item.toLowerCase().includes(query));
+      if (!filtered.length) {
+        target.innerHTML = `<div class="empty">${items.length ? 'No matches.' : 'No work orders in this category.'}</div>`;
+        return;
+      }
+      target.innerHTML = filtered.map(item => `
+        <div class="work-item">
+          <div class="work-name">${escapeHtml(item)}</div>
+          <div class="work-domain">Domain: ${escapeHtml(extractDomain(item))}</div>
+        </div>
+      `).join('');
+    }
+
+    function render() {
+      const query = $('searchInput').value.trim().toLowerCase();
+      const total = sorted.ei.length + sorted.ps.length + sorted.pepto.length;
+      $('totalCount').textContent = total;
+      $('eiCount').textContent = sorted.ei.length;
+      $('psCount').textContent = sorted.ps.length;
+      $('peptoCount').textContent = sorted.pepto.length;
+      $('eiPill').textContent = sorted.ei.length;
+      $('psPill').textContent = sorted.ps.length;
+      $('peptoPill').textContent = sorted.pepto.length;
+      renderList('eiList', sorted.ei, query);
+      renderList('psList', sorted.ps, query);
+      renderList('peptoList', sorted.pepto, query);
+    }
+
+    $('sortBtn').addEventListener('click', () => {
+      sortLines($('workInput').value.split(/\r?\n/));
+    });
+
+    $('clearBtn').addEventListener('click', () => {
+      $('workInput').value = '';
+      $('searchInput').value = '';
+      sorted = { ei: [], ps: [], pepto: [] };
+      render();
+    });
+
+    $('loadExampleBtn').addEventListener('click', () => {
+      $('workInput').value = [
+        'WO-10452, Replace transmitter, HBSG-128-665',
+        'WO-10453, Pump station inspection, HBSG-128-999-001',
+        'WO-10454, General mechanical repair, HBSG-555-111',
+        'WO-10455, Calibrate pressure switch, HBSG-128-665-020',
+        'WO-10456, PS panel check, HBSG-128-999-001-003',
+        'WO-10457, Disconnect Audit, HBSG-128-999-001',
+        'WO-10458, TAG# FT-204 inspection, HBSG-555-111',
+        'WO-10459, Area Disconnect Audit, HBSG-555-222'
+      ].join('\n');
+      sortLines($('workInput').value.split(/\r?\n/));
+    });
+
+    $('searchInput').addEventListener('input', render);
+
+    $('csvFile').addEventListener('change', async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(Boolean);
+      $('workInput').value = lines.join('\n');
+      sortLines(lines);
+      event.target.value = '';
+    });
+
+    $('exportBtn').addEventListener('click', () => {
+      const rows = [['Category', 'Work Order', 'Detected Domain']];
+      for (const item of sorted.ei) rows.push(['E&I PM', item, extractDomain(item)]);
+      for (const item of sorted.ps) rows.push(['PS E&I', item, extractDomain(item)]);
+      for (const item of sorted.pepto) rows.push(['PEPTO', item, extractDomain(item)]);
+
+      if (rows.length === 1) {
+        alert('Sort some work orders before exporting.');
+        return;
+      }
+
+      const csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'sorted_work_orders.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    render();
+  </script>
+</body>
+</html>
